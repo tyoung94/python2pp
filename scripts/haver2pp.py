@@ -74,6 +74,7 @@ def printTestXML(element):
 
 SLIDE_CHOICE = 12
 start = '1995-01-01'
+#These two prefixs are required for XML. I use whichever one the XML template specifies
 prefix = '{http://schemas.openxmlformats.org/drawingml/2006/chart}'
 prefixa = '{http://schemas.openxmlformats.org/drawingml/2006/main}'
 
@@ -95,7 +96,7 @@ slide = prs.slides.add_slide(slide_layout)
 series = ['csent', 'ccin']
 cons_conf, chart_data = buildChartData(series, 'usecon', start)
 
-#Dimensions for charts. I'd like to convert these to tuples, but i don't know how to unpack them and apply the "Inches" function found in the "insertLineChart" function
+#Dimensions for charts. I'd like to convert these to tuples, but i don't know how to efficiently unpack them and apply the "Inches" function found in the "insertLineChart" function
 dim = [.5, .45, 8, 5]
 main_chart = insertLineChart(dim, chart_data)
 
@@ -111,7 +112,7 @@ valAx.maximum_scale = 0.1
 valAx.minimum_scale = 0
 valticks = valAx.tick_labels
 
-#We don't want to see the y axis values when we're doing recession shading
+#We don't want to see the secondary y axis values when we're doing recession shading
 font = valticks.font
 font.size = Pt(1)
 
@@ -120,42 +121,35 @@ rec_series = rec_chart.series[0]
 rec_fill = rec_series.format
 fill = rec_fill.fill
 
-############# This is the portal to XML fantasy land ##############
+########### This is the portal to magic XML fantasy land ##############
 #Extract XML elements for the line chart and the area chart
 rec_element = rec_chart.plots._plotArea
 main_element = main_chart.plots._plotArea
 ############ Code changes gear after this point ##########################
 
-
-#These are the elements that need to be copied from the recession chart to the line chart
-#default_layouts = {key: i for i, key in enumerate(default_layouts, start=1)}
-rec_children = {key: i for i, key in enumerate(rec_element.getchildren(), start=1)}
-layout = rec_element.find(prefix + 'layout')
-areaChart = rec_element.find(prefix + 'areaChart')
-rec_valAx = rec_element.find(prefix+'valAx' )
-rec_dateAx = rec_element.find(prefix+'dateAx')
-
-#We insert the elements in this order
-main_element.insert(0, layout)
-main_element.insert(1, areaChart)
-main_element.append(rec_valAx)
-main_element.append(rec_dateAx)
-
-
-
-#now that we've insert the area chart into the line chart, i get a new copy of the area chart element to reflect any changes that may have occured.
-areaChart_copy = main_element.find(prefix + 'areaChart')
+# From the XML Final Template we know there are 4 "primary" elements missing in the main chart plot_area element
+#We insert the elements in this order. This order was pulled from the desired XML result found in the "templates" folder
+main_element.insert(0, rec_element.find(prefix + 'layout'))
+main_element.insert(1, rec_element.find(prefix + 'areaChart'))
+main_element.append(rec_element.find(prefix+'valAx'))
+main_element.append(rec_element.find(prefix+'dateAx'))
 
 #Now in the main_element SubElements, there are two valAx's and two dateAx's. I don't know how to use "find' when there are multiple subelements with the same name
 #Because we appended the new axes to the end of the list, we can get them from the same place
-children = main_element.getchildren()
-newDateAx = children[-1]
-newValAx = children[-2]
-oldValAx = children[-3]
-oldDateAx = children[-4]
+children_elements = main_element.getchildren()
+children_names = ['layout', 'rec_chart', 'main_chart', 'main_dateAx', 'main_valAx', 'rec_valAx', 'rec_dateAx']
 
+main_dict = dict(zip(children_names, children_elements))
+
+areaChart_copy = main_element.find(prefix + 'areaChart')
+newDateAx = children_elements[-1]
+newValAx = children_elements[-2]
+oldValAx = children_elements[-3]
+oldDateAx = children_elements[-4]
 #################################################################################
 #I don't know what these do. Just trying to match the desired xml
+
+
 ser = areaChart_copy.find(prefix+'ser')
 idx = ser.find(prefix+'idx')
 idx.set('val', '2')
