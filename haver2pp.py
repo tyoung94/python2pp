@@ -108,9 +108,12 @@ rec_series = rec_chart.series[0]
 rec_fill = rec_series.format
 fill = rec_fill.fill
 
+############# This is the portal to XML fantasy land ##############
 #Extract XML elements for the line chart and the area chart
 rec_element = rec_chart.plots._plotArea
 line_element = chart.plots._plotArea
+############ Code changes gear after this point ##########################
+
 
 #These are the elements that need to be copied from the recession chart to the line chart
 #default_layouts = {key: i for i, key in enumerate(default_layouts, start=1)}
