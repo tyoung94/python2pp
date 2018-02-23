@@ -16,8 +16,11 @@ from copy import deepcopy
 from pprint import pprint
 from lxml import etree
 from pptx.util import Pt
+import os
+import sys
 
-haver_path = r'O:\Haver\Data'
+os.chdir('H:/python2pp')
+haver_path = r'O:/Haver/Data'
 Haver.path(haver_path)
 
 def clearSlide(slide):
@@ -65,29 +68,36 @@ def insertAreaChart(dim, chart_data):
     return chart
 
 def printTestXML(element):
-    with open(r'C:\Users\D1TAY01\Desktop\xml_test', 'wt') as out:
+    with open(r'./output/xml_test', 'wt') as out:
         pprint(element.xml, stream=out)
         
 
-SLIDE_CHOICE = 13
+SLIDE_CHOICE = 12
 start = '1995-01-01'
 prefix = '{http://schemas.openxmlformats.org/drawingml/2006/chart}'
 prefixa = '{http://schemas.openxmlformats.org/drawingml/2006/main}'
 
 #Open BoD template
-prs = Presentation(r'C:\Users\D1TAY01\Desktop\fomc_template.pptx')
+try:
+    prs = Presentation(r'./templates/fomc_template.pptx')
+except:
+    sys.exit("Program terminating. PowerPoint template not found")
+    
 #set slide format
 slide_layout = prs.slide_layouts[SLIDE_CHOICE]
 #insert slide with selected format
 slide = prs.slides.add_slide(slide_layout)
 #When inserting a blank slide the Fed watermark is not included. I insert a nonblank slide and clear it as a work around
-clearSlide(slide)
+#clearSlide(slide)
 
 #Build the consumer sentiment chart data
-series = ['csent', 'ccin',]
+#Hard coded consumer sentiment indictors
+series = ['csent', 'ccin']
 cons_conf, chart_data = buildChartData(series, 'usecon', start)
+
+#Dimensions for charts. I'd like to convert these to tuples, but i don't know how to unpack them and apply the "Inches" function found in the "insertLineChart" function
 dim = [.5, .45, 8, 5]
-chart = insertLineChart(dim, chart_data)
+main_chart = insertLineChart(dim, chart_data)
 
 #build the recession chart data
 recess = ['recessm']
@@ -100,6 +110,8 @@ valAx = rec_chart.value_axis
 valAx.maximum_scale = 0.1
 valAx.minimum_scale = 0
 valticks = valAx.tick_labels
+
+#We don't want to see the y axis values when we're doing recession shading
 font = valticks.font
 font.size = Pt(1)
 
@@ -111,33 +123,32 @@ fill = rec_fill.fill
 ############# This is the portal to XML fantasy land ##############
 #Extract XML elements for the line chart and the area chart
 rec_element = rec_chart.plots._plotArea
-line_element = chart.plots._plotArea
+main_element = main_chart.plots._plotArea
 ############ Code changes gear after this point ##########################
 
 
 #These are the elements that need to be copied from the recession chart to the line chart
 #default_layouts = {key: i for i, key in enumerate(default_layouts, start=1)}
-#rec_children = {key: i for i, key in enumerate(rec_element.getchildren(), start=1)}
-#rec_children = dict(rec_element.getchildren())
+rec_children = {key: i for i, key in enumerate(rec_element.getchildren(), start=1)}
 layout = rec_element.find(prefix + 'layout')
 areaChart = rec_element.find(prefix + 'areaChart')
 rec_valAx = rec_element.find(prefix+'valAx' )
 rec_dateAx = rec_element.find(prefix+'dateAx')
 
 #We insert the elements in this order
-line_element.insert(0, layout)
-line_element.insert(1, areaChart)
-line_element.append(rec_valAx)
-line_element.append(rec_dateAx)
+main_element.insert(0, layout)
+main_element.insert(1, areaChart)
+main_element.append(rec_valAx)
+main_element.append(rec_dateAx)
 
 
 
 #now that we've insert the area chart into the line chart, i get a new copy of the area chart element to reflect any changes that may have occured.
-areaChart_copy = line_element.find(prefix + 'areaChart')
+areaChart_copy = main_element.find(prefix + 'areaChart')
 
-#Now in the line_element SubElements, there are two valAx's and two dateAx's. I don't know how to use "find' when there are multiple subelements with the same name
+#Now in the main_element SubElements, there are two valAx's and two dateAx's. I don't know how to use "find' when there are multiple subelements with the same name
 #Because we appended the new axes to the end of the list, we can get them from the same place
-children = line_element.getchildren()
+children = main_element.getchildren()
 newDateAx = children[-1]
 newValAx = children[-2]
 oldValAx = children[-3]
@@ -168,7 +179,7 @@ ln = etree.SubElement(spPr, prefixa + 'ln')
 dash = etree.SubElement(ln, prefixa + 'prstDash')
 dash.set('val', 'lgDash')
 
-valAx = line_element.find(prefix+'valAx')
+valAx = main_element.find(prefix+'valAx')
 valAx_scaling = valAx.find(prefix+'scaling')
 orientation = etree.SubElement(valAx_scaling, prefix+'orientation')
 orientation.set('val', 'minMax')
@@ -198,7 +209,7 @@ copy = deepcopy(numFormat)
 numFormat.getparent().remove(numFormat)
 valAx.insert(5, copy)
 
-lineChart = line_element.find(prefix+'lineChart')
+lineChart = main_element.find(prefix+'lineChart')
 dLbls = etree.SubElement(lineChart, prefix+'dLbls')
 legKey = etree.SubElement(dLbls, prefix+'showLegendKey')
 legKey.set('val', '0')
@@ -217,8 +228,8 @@ dLbls_copy = deepcopy(dLbls)
 dLbls.getparent().remove(dLbls)
 lineChart.insert(4, dLbls_copy)
 
-chartParent = line_element.getparent()
-parent = (line_element.getparent()).getparent()
+chartParent = main_element.getparent()
+parent = (main_element.getparent()).getparent()
 lang = etree.SubElement(parent, prefix+'lang')
 lang.set('val', 'en-US')
 rounded = etree.SubElement(parent, prefix+'roundedCorners')
@@ -238,15 +249,14 @@ parent.insert(2, rounded_copy)
 parent.insert(3, style_copy)
 #############################################################################
 
-#Finally we delete the original recession chart. There should only two shapes on this slide (2 graphic frames)
-#Because we created the recession chart 2nd it'll be second in the list of shapes on the slide
+#Finally we delete the original recession chart. Because it is the last shape that was added to the chart, it'll be the last in the list of shapes on the slide
 shapes = slide.shapes
-x = shapes[1]._element
+x = shapes[-1]._element
 x.getparent().remove(x)
 
 
 #---------Format X axis------------------------
-cat_axis = chart.category_axis
+cat_axis = main_chart.category_axis
 cat_axis.has_major_gridlines = False
 
 cat_axis.tick_label_position = XL_TICK_LABEL_POSITION.LOW
@@ -256,7 +266,7 @@ tick_labels.number_format = 'mmmyy'
 tick_labels.number_format_is_linked = False
 
 ##-------Remove Legend-------------------
-chart.has_legend = False
+main_chart.has_legend = False
 
 ##------Add title-----------------------
 # =============================================================================
@@ -267,17 +277,17 @@ chart.has_legend = False
 # tf.text = 'Consumer Sentiment'
 # =============================================================================
 
-printTestXML((line_element.getparent()).getparent())
+printTestXML((main_element.getparent()).getparent())
 
-prs.save(r'C:\Users\D1TAY01\Desktop\fomc_template_mod.pptx')
+prs.save(r'./output/fomc_template_mod.pptx')
  
 
 
 
 
 ##get Axis Ids of line chart
-#lineValAxId = retrieveAxId(line_element, 'valAx')
-#lineDateAxId = retrieveAxId(line_element, 'dateAx')
+#lineValAxId = retrieveAxId(main_element, 'valAx')
+#lineDateAxId = retrieveAxId(main_element, 'dateAx')
 
 
 # =============================================================================
