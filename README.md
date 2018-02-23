@@ -1,5 +1,8 @@
 # python2pp
 
+NOTE:
+Clone this repo to your H drive and all paths will work
+
 Whats been done:
  - Manipulate XML to put a series on the secondary y axis
  - Manipulate XML to convert a line series (recession usually) into an area chart
