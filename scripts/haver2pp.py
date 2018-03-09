@@ -149,30 +149,55 @@ oldDateAx = children_elements[-4]
 #################################################################################
 #I don't know what these do. Just trying to match the desired xml
 
+############### Going down the main_dict in order ##################
 
-ser = areaChart_copy.find(prefix+'ser')
-idx = ser.find(prefix+'idx')
+#### Layout 
+#Needs no modifications
+
+#### rec_chart
+# Get list of rec_chart children and put them in dictionary
+rec_chart_el = main_dict.get('rec_chart', -1)
+rec_chart_names = ['grouping', 'varyColors', 'ser', 'dLbls', 'axId', 'axId']
+rec_chart_dict = dict(zip(rec_chart_names, rec_chart_el.getchildren()))
+### get ser element
+#ser = areaChart_copy.find(prefix+'ser')
+rec_ser = rec_chart_dict.get('ser', -1)
+rec_ser_names = ['idx', 'order', 'tx', 'spPr', 'cat', 'val']
+rec_ser_dict = dict(zip(rec_ser_names, rec_ser.getchildren()))
+
+### get idx element
+#idx = ser.find(prefix+'idx')
+idx = rec_ser_dict.get('idx', -1)
 idx.set('val', '2')
-order = ser.find(prefix+'order')
+order = rec_ser_dict.get('order', -1)
 order.set('val', '2')
 
 #Format areachart fill and transparency
-spPr = ser.find(prefix+'spPr')
-solidFill = etree.SubElement(spPr, prefixa+'solidFill')
-schemeClr = etree.SubElement(solidFill, prefixa+'schemeClr')
-schemeClr.set('val', 'bg1')
-lumMod = etree.SubElement(schemeClr, prefixa+'lumMod')
-lumMod.set('val', '65000')
-alpha = etree.SubElement(schemeClr, prefixa+'alpha')
-alpha.set('val', '80000')
+spPr = rec_ser_dict.get('spPr', -1)
+#spPr = ser.find(prefix+'spPr')
+if not spPr.find(prefixa+'solidFill'):
+    solidFill = etree.SubElement(spPr, prefixa+'solidFill')
+    schemeClr = etree.SubElement(solidFill, prefixa+'schemeClr')
+    schemeClr.set('val', 'bg1')
+    lumMod = etree.SubElement(schemeClr, prefixa+'lumMod')
+    lumMod.set('val', '65000')
+    alpha = etree.SubElement(schemeClr, prefixa+'alpha')
+    alpha.set('val', '80000')
 
-#format gridlines
-grids = oldValAx.find(prefix+'majorGridlines')
-spPr = etree.SubElement(grids, prefix + 'spPr')
-ln = etree.SubElement(spPr, prefixa + 'ln')
-dash = etree.SubElement(ln, prefixa + 'prstDash')
-dash.set('val', 'lgDash')
+####Rec ValAx
+###format gridlines
+rec_valAx_names = ['axId', 'scaling', 'delete', 'axPos', 'majorGridlines', 'numFmt', 'majorTickMark', 'minorTickMark', 'tickLblPos', 'txPr', 'crossAx', 'crosses', 'crossBetween']
+rec_valAx = main_dict.get('rec_valAx', -1)
+rec_valAx_dict = dict(zip(rec_valAx_names, rec_valAx))
+grids = rec_valAx_dict.get('majorGridlines')
+#grids = oldValAx.find(prefix+'majorGridlines')
+if not grids.find(prefix+'spPr'):
+    rec_valAx_spPr = etree.SubElement(grids, prefix + 'spPr')
+    ln = etree.SubElement(rec_valAx_spPr, prefixa + 'ln')
+    dash = etree.SubElement(ln, prefixa + 'prstDash')
+    dash.set('val', 'lgDash')
 
+main_valAx = main_dict.get('main_valAx',-1)
 valAx = main_element.find(prefix+'valAx')
 valAx_scaling = valAx.find(prefix+'scaling')
 orientation = etree.SubElement(valAx_scaling, prefix+'orientation')
